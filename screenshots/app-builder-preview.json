@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Valentine's Love Dash",
+      "hasCanvas": false,
+      "bodyTextLen": 321,
+      "bodyTextHash": "24a03b1861ee3eba560bde9c9120034377fc38a90c0800beb7eafa023e1bc187",
+      "bodyTextPrefix": "Valentine's Love Dash 15 Seconds 0 Hearts 2,450 Family Points Lo",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Valentine's Love Dash",
+      "hasCanvas": false,
+      "bodyTextLen": 321,
+      "bodyTextHash": "24a03b1861ee3eba560bde9c9120034377fc38a90c0800beb7eafa023e1bc187",
+      "bodyTextPrefix": "Valentine's Love Dash 15 Seconds 0 Hearts 2,450 Family Points Lo",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

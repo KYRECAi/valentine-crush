@@ -1,0 +1,37 @@
+/* Moneybags website teaser: presentation only. The game engine and reward boundaries are unchanged. */
+.demo-game-label {
+  position: fixed;
+  top: calc(46px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  margin: 0;
+  color: #33295a;
+  font: 800 11px/14px "Nunito", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Hide the legacy explanatory widgets, including from the accessibility tree. */
+.phone .demo-disclaimer,
+.phone .game-controls,
+.phone .keyboard-help,
+.phone .level-progress,
+.phone .saved-pill,
+.phone .stat-row > .stat:nth-child(3),
+.phone .meters > .meter:nth-child(3),
+.phone .meters > .meter:first-child .meter-sub,
+.phone .meters > .meter:last-child .meter-sub,
+.phone .bonus-copy > p + p,
+.phone .veil-results .lede,
+.phone .veil-results .best {
+  display: none !important;
+}
+/* Preserve the portrait teaser, with the recovered space given to Moneybags. */
+.shell { place-items: start center; }
+.phone { min-height: 560px; height: 100dvh; max-height: 900px; }
+.phone .topbar { padding-bottom: 24px; }
+.phone .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.phone .meters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.phone .bonus-bar { min-height: 52px; box-sizing: border-box; }
+/* Native pointer buttons, focus outlines, mute, pause and OS reduced motion are retained. */

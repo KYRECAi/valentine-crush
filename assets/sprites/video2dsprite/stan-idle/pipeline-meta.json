@@ -1,0 +1,52 @@
+{
+  "skill": "video2dsprite",
+  "platform": "Grok Build (imagine_image_to_video required for generation step)",
+  "name": "stan-idle",
+  "video": "/workspace/assets/sprites/video2dsprite/stan-idle/video/stan-idle-6s.mp4",
+  "out_dir": "/workspace/assets/sprites/video2dsprite/stan-idle",
+  "raw_frames": 145,
+  "chroma_dist": 55.0,
+  "cell_size": 256,
+  "body_height": 100,
+  "foot_y": 118,
+  "anchor": "center",
+  "total_clean": 145,
+  "sets": [
+    {
+      "count": 12,
+      "tag": "x12",
+      "sprites": [
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_01.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_02.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_03.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_04.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_05.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_06.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_07.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_08.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_09.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_10.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_11.png",
+        "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/x12/sprite_12.png"
+      ],
+      "strip": "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/run-strip-12.png",
+      "grid": "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/run-grid-12.png",
+      "gif": "/workspace/assets/sprites/video2dsprite/stan-idle/sprite/run-preview-12.gif",
+      "gif_ms": 60,
+      "indices": [
+        0,
+        13,
+        26,
+        39,
+        52,
+        65,
+        79,
+        92,
+        105,
+        118,
+        131,
+        144
+      ]
+    }
+  ]
+}

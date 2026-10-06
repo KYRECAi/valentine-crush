@@ -1,0 +1,43 @@
+{
+  "mode": "sample",
+  "clean_dir": "/workspace/assets/sprites/video2dsprite/stan-throw/frames-clean",
+  "total_clean": 54,
+  "sets": [
+    {
+      "count": 12,
+      "tag": "x12",
+      "sprites": [
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_01.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_02.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_03.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_04.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_05.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_06.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_07.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_08.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_09.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_10.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_11.png",
+        "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/x12/sprite_12.png"
+      ],
+      "strip": "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/run-strip-12.png",
+      "grid": "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/run-grid-12.png",
+      "gif": "/workspace/assets/sprites/video2dsprite/stan-throw/sprite/run-preview-12.gif",
+      "gif_ms": 60,
+      "indices": [
+        0,
+        5,
+        10,
+        14,
+        19,
+        24,
+        29,
+        34,
+        39,
+        43,
+        48,
+        53
+      ]
+    }
+  ]
+}

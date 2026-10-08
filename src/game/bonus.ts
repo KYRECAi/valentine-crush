@@ -6,7 +6,7 @@ export const ROUND_MAX = 20;
 export const BONUS_GOAL = 100;
 export const BEST_TEAM_BASE = 2800;
 
-const GRAVITY = 40;
+const GRAVITY = 58;
 const STAN_X = 16;
 const STAN_Y = 64;
 
@@ -92,6 +92,7 @@ export type Hud = {
   coinsCollected: number;
   // Read-only demo context. Production authority belongs to KYREC Core.
   familyPoints: number;
+  familyGain: number;
   totalCoins: number;
   level: number;
   combo: number;
@@ -121,8 +122,15 @@ export type Hud = {
   laserReady: boolean;
   nukeReady: boolean;
   catches: number;
+  hitHeart: number;
+  missHeart: number;
+  hitGem: number;
+  missGem: number;
+  hitK: number;
+  missK: number;
   stageNeed: number;
   stageCleared: boolean;
+  finale: boolean;
   stanPose: StanPose;
   novaPose: NovaPose;
   novaLine: string | null;
@@ -148,21 +156,21 @@ function comboLabel(n: number) {
 }
 
 export const STAGES = [
-  { name: "Cherry Street", id: "01", need: 800, spawn: 42 },
-  { name: "Pagoda Blossoms", id: "02", need: 960, spawn: 42 },
-  { name: "Lantern Street", id: "03", need: 1120, spawn: 42 },
-  { name: "Hideyoshi", id: "04", need: 1300, spawn: 44 },
-  { name: "Osaka Castle", id: "05", need: 1480, spawn: 44 },
-  { name: "Moat at Dusk", id: "06", need: 1680, spawn: 44 },
-  { name: "Castle Lights", id: "07", need: 1880, spawn: 46 },
-  { name: "Fox Shrine", id: "08", need: 2100, spawn: 46 },
-  { name: "Torii Path", id: "09", need: 2320, spawn: 46 },
-  { name: "Tokyo Tower", id: "10", need: 2540, spawn: 48 },
-  { name: "Rainy Crossing", id: "11", need: 2760, spawn: 48 },
-  { name: "Fog City", id: "12", need: 2980, spawn: 48 },
-  { name: "Night River", id: "13", need: 3200, spawn: 50 },
-  { name: "Night Canal", id: "14", need: 3420, spawn: 50 },
-  { name: "Night Blossoms", id: "15", need: 3640, spawn: 50 },
+  { name: "Cherry Street", id: "01", need: 1600, spawn: 42 },
+  { name: "Pagoda Blossoms", id: "02", need: 2000, spawn: 42 },
+  { name: "Lantern Street", id: "03", need: 2400, spawn: 42 },
+  { name: "Hideyoshi", id: "04", need: 2900, spawn: 44 },
+  { name: "Osaka Castle", id: "05", need: 3400, spawn: 44 },
+  { name: "Moat at Dusk", id: "06", need: 4000, spawn: 44 },
+  { name: "Castle Lights", id: "07", need: 4600, spawn: 46 },
+  { name: "Fox Shrine", id: "08", need: 5300, spawn: 46 },
+  { name: "Torii Path", id: "09", need: 6000, spawn: 46 },
+  { name: "Tokyo Tower", id: "10", need: 6800, spawn: 48 },
+  { name: "Rainy Crossing", id: "11", need: 7600, spawn: 48 },
+  { name: "Fog City", id: "12", need: 8500, spawn: 48 },
+  { name: "Night River", id: "13", need: 9400, spawn: 50 },
+  { name: "Night Canal", id: "14", need: 10400, spawn: 50 },
+  { name: "Night Blossoms", id: "15", need: 11500, spawn: 50 },
 ] as const;
 
 export function stageDef(level: number) {
@@ -240,11 +248,19 @@ export function createBonus() {
     timeLeft: ROUND_TIME,
     coinsCollected: 0,
     familyPoints: save0.familyPoints,
+    familyGain: 0,
     totalCoins: save0.totalCoins,
     level: save0.stage,
     catches: 0,
+    hitHeart: 0,
+    missHeart: 0,
+    hitGem: 0,
+    missGem: 0,
+    hitK: 0,
+    missK: 0,
     stageNeed: stageDef(save0.stage).need,
     stageCleared: false,
+    finale: false,
     combo: 0,
     comboLabel: "Ready",
     streak: save0.streak,
@@ -308,7 +324,9 @@ export function createBonus() {
   }
 
   function burst(x: number, y: number, n: number, hue: number) {
-    for (let i = 0; i < n; i++) {
+    if (hud.sparks.length > 16) return;
+    const count = Math.min(n, 6);
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 160 + Math.random() * 340;
       hud.sparks.push({
@@ -339,7 +357,7 @@ export function createBonus() {
       x: Math.min(96, Math.max(4, x)),
       y: -12 - (lane % 5) * 8 - Math.random() * 14,
       vx: (Math.random() * 2 - 1) * 2.4,
-      vy: (32 + (lane % 3) * 6 + Math.random() * 8 + (hud.onFire ? 8 : 0)) * (0.96 + (hud.level - 1) * 0.015),
+      vy: (46 + (lane % 3) * 8 + Math.random() * 10 + (hud.onFire ? 10 : 0)) * (0.96 + (hud.level - 1) * 0.015),
       rot: Math.random() * 30 - 15,
       vr: (Math.random() * 2 - 1) * 28,
       life: spec.life,
@@ -365,49 +383,54 @@ export function createBonus() {
     return made;
   }
 
-  function stanThrowHearts() {
-    hud.stanPose = "throw";
-    throwHold = 1.85;
-    releaseIn = 0.34;
-  }
-
-  function releaseFromHand() {
+  function shootHearts(fromX: number, fromY: number) {
     const spec = KIND.coin;
-    const targets = [8, 20, 32, 44, 56, 68, 80, 92];
-    const heights = [2, 8, 0, 12, 4, 10, 1, 6];
+    const targets = [6, 18, 30, 42, 54, 66, 78, 90];
+    const heights = [-8, 4, -12, 8, -2, 10, 0, 6];
     hud.shake = Math.min(1, hud.shake + 0.2);
     for (let i = 0; i < targets.length; i++) {
       hud.pickups.push({
         id: id++,
         kind: "coin",
-        x: handX,
-        y: handY,
+        x: fromX,
+        y: fromY,
         vx: 0,
         vy: 0,
-        rot: -30,
-        vr: 280,
+        rot: -20,
+        vr: 220,
         life: 4.6,
         maxLife: 4.6,
-        size: 28,
+        size: 34,
         bob: i,
         value: spec.value,
         coins: spec.coins,
         fromStan: true,
-        z: -i * 0.08,
-        ox: handX,
-        oy: handY,
+        z: -i * 0.07,
+        ox: fromX,
+        oy: fromY,
         tx: targets[i],
         ty: heights[i],
       });
     }
-    burst(handX, handY, 14, 340);
+    burst(fromX, fromY, 10, 340);
   }
 
   function rollKind(combo: number): Kind {
     const r = Math.random();
     if (r < 0.08 + Math.min(0.07, combo * 0.005)) return "kcoin";
-    if (r < 0.28) return "gem";
+    if (r < 0.42) return "gem";
     return "coin";
+  }
+
+  function noteCatch(kind: Kind, hit: boolean) {
+    if (kind === "gem") {
+      if (hit) hud.hitGem += 1;
+      else hud.missGem += 1;
+    } else if (kind === "kcoin") {
+      if (hit) hud.hitK += 1;
+      else hud.missK += 1;
+    } else if (hit) hud.hitHeart += 1;
+    else hud.missHeart += 1;
   }
 
   function collect(target: Pickup) {
@@ -420,6 +443,7 @@ export function createBonus() {
     hud.catches += 1;
     hud.bonusTaps = Math.min(999, hud.bonusTaps + target.coins);
     hud.teamScore += Math.round(6 * mult);
+    noteCatch(target.kind, true);
     comboT = 2.2;
     hud.combo += 1;
     hud.comboLabel = comboLabel(hud.combo);
@@ -459,10 +483,7 @@ export function createBonus() {
     if (target.kind === "kcoin") {
       pose("smirk", 1.4);
       cue("kcoin");
-      stanThrowHearts();
-      hud.novaLine = "Yes. That's the height.";
-      novaTalk = 4.4;
-      cheerHold = 2.4;
+      shootHearts(target.x, target.y);
     } else if (target.kind === "gem") {
       pose(hud.onFire ? "fire" : "smirk", 0.9);
       cue("gem");
@@ -504,6 +525,7 @@ export function createBonus() {
     hud.catches += 1;
     hud.bonusTaps = Math.min(999, hud.bonusTaps + target.coins);
     hud.teamScore += Math.round(6 * hud.multiplier);
+    noteCatch(target.kind, true);
     float(target.x, target.y, `+${scored}`, "fire");
   }
 
@@ -552,11 +574,18 @@ export function createBonus() {
     hud.pickups = [];
     hud.totalCoins += hud.coinsCollected;
     hud.stageCleared = forced || hud.roundScore >= hud.stageNeed;
+    hud.finale = hud.stageCleared && hud.level >= STAGES.length;
     const nextStage = hud.stageCleared && hud.level < STAGES.length ? hud.level + 1 : hud.level;
+    const gained = hud.stageCleared
+      ? Math.round(hud.roundScore * 0.2) + hud.level * 100
+      : 0;
+    hud.familyGain = gained;
+    hud.familyPoints += gained;
     const patch: Partial<SaveData> = {
       totalCoins: hud.totalCoins,
       teamScore: hud.teamScore,
       stage: nextStage,
+      familyPoints: hud.familyPoints,
       bestCombo: Math.max(loadSave().bestCombo, hud.combo),
     };
     if (hud.roundScore > hud.highScore) {
@@ -592,12 +621,20 @@ export function createBonus() {
     hud.floaters = [];
     hud.sparks = [];
     hud.familyPoints = s.familyPoints;
+    hud.familyGain = 0;
     hud.totalCoins = s.totalCoins;
     hud.level = s.stage;
     hud.catches = 0;
+    hud.hitHeart = 0;
+    hud.missHeart = 0;
+    hud.hitGem = 0;
+    hud.missGem = 0;
+    hud.hitK = 0;
+    hud.missK = 0;
     const stage = stageDef(s.stage);
     hud.stageNeed = stage.need;
     hud.stageCleared = false;
+    hud.finale = false;
     spawnTotal = Math.max(stage.spawn, 180);
     spawnBudget = spawnTotal;
     laserUsed = false;
@@ -637,7 +674,7 @@ export function createBonus() {
     pose("smirk", 1.6);
     say(pickLine("ready"), 1.9);
     cue("start");
-    const opened = rainFromSky(Math.min(4, spawnBudget));
+    const opened = rainFromSky(8);
     spawnBudget -= opened;
   }
 
@@ -737,21 +774,16 @@ export function createBonus() {
       }
     }
 
-    const hurry = hud.timeLeft <= 5 ? 0.86 : 1;
-    const volleyGap = (hud.onFire ? 1.15 : 1.55) * hurry;
+    const hurry = hud.timeLeft <= 5 ? 0.9 : 1;
+    const volleyGap = (hud.onFire ? 0.72 : 0.95) * hurry;
     spawnAcc += dt;
-    if (spawnBudget > 0 && spawnAcc >= volleyGap && hud.pickups.length < (hud.onFire ? 16 : 14)) {
+    if (spawnAcc >= volleyGap && hud.pickups.length < (hud.onFire ? 22 : 18)) {
       spawnAcc = 0;
-      const batch = Math.min(spawnBudget, hud.onFire ? 5 : 4);
-      spawnBudget -= rainFromSky(batch);
+      rainFromSky(hud.onFire ? 6 : 5);
     }
 
     hud.anim += dt;
     throwHold = Math.max(0, throwHold - dt);
-    if (releaseIn > 0) {
-      releaseIn -= dt;
-      if (releaseIn <= 0) releaseFromHand();
-    }
     cheerHold = Math.max(0, cheerHold - dt);
     novaTalk = Math.max(0, novaTalk - dt);
     if (throwHold > 0) hud.stanPose = "throw";
@@ -791,7 +823,7 @@ export function createBonus() {
         p.y = oy + (ty - oy) * e - Math.sin(t * Math.PI) * 22;
         p.size = 28 + e * e * 70;
         p.rot += 480 * dt;
-        if (Math.random() < 0.85) {
+        if (hud.sparks.length < 12 && Math.random() < 0.12) {
           hud.sparks.push({
             id: id++,
             x: p.x - (tx - ox) * 0.05,
@@ -817,9 +849,11 @@ export function createBonus() {
       p.vy += GRAVITY * dt;
       p.rot += p.vr * dt;
     }
-    hud.pickups = hud.pickups.filter(
-      (p) => p.life > 0 && p.x > -18 && p.x < 118 && p.y > -28 && p.y < 114,
-    );
+    hud.pickups = hud.pickups.filter((p) => {
+      const live = p.life > 0 && p.x > -18 && p.x < 118 && p.y > -28 && p.y < 114;
+      if (!live && (p.y >= 114 || p.life <= 0)) noteCatch(p.kind, false);
+      return live;
+    });
 
     for (const f of hud.floaters) {
       f.life -= dt;

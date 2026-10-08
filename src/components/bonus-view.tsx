@@ -12,23 +12,11 @@ import {
 import { createAudio } from "@/game/audio";
 import { createBonus, BONUS_GOAL, ROUND_TIME, sceneForLevel, type Cue, type Hud } from "@/game/bonus";
 import { loadSave, writeSave } from "@/game/save";
-import { BANKS, preloadVoices, silence, speak, speakNova } from "@/game/voice";
-
-const STAN_IMG = {
-  idle: "/sprites/companions/stan-idle.png?v=5",
-  follow: "/sprites/companions/stan-idle.png?v=5",
-  throw: "/sprites/companions/stan-throw.png?v=5",
-};
-
-const NOVA_IMG = {
-  idle: "/sprites/companions/nova-idle.png?v=3",
-  point: "/sprites/companions/nova-point.png?v=3",
-  cheer: "/sprites/companions/nova-cheer.png?v=3",
-};
+import { BANKS, preloadVoices, silence, speak } from "@/game/voice";
 
 const HEART = "/sprites/items/heart.png";
 const STAR = "/sprites/items/star.png";
-const NOTE = "/sprites/items/note.png?v=3";
+const GEM = "/sprites/items/gem.png";
 
 const KCOIN_SPIN = [
   "/sprites/moneybags/kcoin-1.png",
@@ -77,10 +65,7 @@ function applyCues(
   for (const c of cues) {
     if (c === "coin") audio?.coin();
     else if (c === "gem") audio?.gem();
-    else if (c === "kcoin") {
-      audio?.kcoin();
-      speakNova("height", muted);
-    } else if (c === "combo") audio?.combo(8);
+    else if (c === "kcoin") audio?.kcoin(); else if (c === "combo") audio?.combo(8);
     else if (c === "rush") audio?.rush();
     else if (c === "laser") audio?.laser();
     else if (c === "nuke") audio?.nuke();
@@ -102,11 +87,19 @@ const emptyHud = (): Hud => ({
   timeLeft: ROUND_TIME,
   coinsCollected: 0,
   familyPoints: 2450,
+  familyGain: 0,
   totalCoins: 0,
   level: 1,
   catches: 0,
+  hitHeart: 0,
+  missHeart: 0,
+  hitGem: 0,
+  missGem: 0,
+  hitK: 0,
+  missK: 0,
   stageNeed: 10,
   stageCleared: false,
+  finale: false,
   combo: 0,
   comboLabel: "Ready",
   streak: 7,
@@ -144,7 +137,6 @@ export function BonusView() {
   const gameRef = useRef<ReturnType<typeof createBonus> | null>(null);
   const audioRef = useRef<ReturnType<typeof createAudio> | null>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
-  const handRef = useRef<HTMLSpanElement>(null);
   const voiceOffRef = useRef(false);
   const [hud, setHud] = useState<Hud>(emptyHud);
   const [musicOn, setMusicOn] = useState(true);
@@ -153,7 +145,6 @@ export function BonusView() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [names, setNames] = useState(["Annie", "Michael", "Grandma", "Kelly"]);
   const [bgSeed, setBgSeed] = useState(0);
-  const [throwFilm, setThrowFilm] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
   const actionRef = useRef<HTMLButtonElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
@@ -185,13 +176,6 @@ export function BonusView() {
   }, []);
 
   useEffect(() => {
-    if (!throwFilm) return;
-    const timer = window.setTimeout(() => setThrowFilm(0), 3400);
-    return () => window.clearTimeout(timer);
-  }, [throwFilm]);
-
-
-  useEffect(() => {
     voiceOffRef.current = !voiceOn;
   }, [voiceOn]);
 
@@ -216,15 +200,7 @@ export function BonusView() {
     setNames(saved.names);
     voiceOffRef.current = !saved.voiceOn;
 
-    Object.values(STAN_IMG).forEach((src) => {
-      const im = new Image();
-      im.src = src;
-    });
-    Object.values(NOVA_IMG).forEach((src) => {
-      const im = new Image();
-      im.src = src;
-    });
-    [HEART, STAR, NOTE, ...KCOIN_SPIN, ...SPARK_FX].forEach((src) => {
+    [HEART, STAR, GEM, ...KCOIN_SPIN, ...SPARK_FX].forEach((src) => {
       const im = new Image();
       im.src = src;
     });
@@ -236,6 +212,8 @@ export function BonusView() {
     let raf = 0;
     let last = performance.now();
     let acc = 0;
+    let painted = 0;
+    let lastPhase = "title";
     const STEP = 1 / 60;
 
     const loop = (now: number) => {
@@ -243,30 +221,25 @@ export function BonusView() {
       try {
       let dt = (now - last) / 1000;
       last = now;
-      if (dt > 0.1) dt = 0.1;
+      if (dt > 0.05) dt = 0.05;
       acc += dt;
-      const hand = handRef.current;
-      const field = fieldRef.current;
-      if (hand && field) {
-        const hr = hand.getBoundingClientRect();
-        const fr = field.getBoundingClientRect();
-        if (fr.width > 0 && fr.height > 0) {
-          game.setHand(
-            ((hr.left + hr.width / 2 - fr.left) / fr.width) * 100,
-            ((hr.top + hr.height / 2 - fr.top) / fr.height) * 100,
-          );
-        }
-      }
       let cues: Cue[] = [];
-      while (acc >= STEP) {
+      let steps = 0;
+      while (acc >= STEP && steps < 2) {
         cues = cues.concat(game.step(STEP));
         acc -= STEP;
+        steps += 1;
       }
-      if (cues.length) applyCues(cues, audio, voiceOffRef.current, game.snapshot().line);
-      const snap = game.snapshot();
-      audio?.setHeat(snap.phase === "playing" ? (snap.onFire ? snap.combo + 8 : snap.combo) : 0);
-      if (cues.includes("kcoin")) setThrowFilm((n) => n + 1);
-      setHud((prev) => (snap.phase === "title" && prev.phase === "title" ? prev : snap));
+      if (acc > STEP) acc = 0;
+      if (cues.length) applyCues(cues, audio, voiceOffRef.current, game.hud.line);
+      const phase = game.hud.phase;
+      if (phase !== lastPhase || now - painted > 32) {
+        lastPhase = phase;
+        painted = now;
+        const snap = game.snapshot();
+        audio?.setHeat(phase === "playing" ? (snap.onFire ? snap.combo + 8 : snap.combo) : 0);
+        setHud(snap);
+      }
       } catch {
         /* keep the screen up if one frame fails */
       }
@@ -341,13 +314,6 @@ export function BonusView() {
   const when = new Date();
   const dateLabel = when.toLocaleDateString("en-AU", { day: "numeric", month: "long" });
   const timeLabel = when.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
-  const notes = [
-    { img: ART.kelly, text: `${names[3]} sent a love note to ${names[2]}` },
-    { img: ART.annie, text: `${names[0]} sent a love note to ${names[1]}` },
-    { img: ART.michael, text: `${names[1]} sent a love note to ${names[0]}` },
-    { img: ART.grandma, text: `${names[2]} sent a love note to ${names[3]}` },
-  ];
-  const note = notes[Math.floor(hud.anim / 4) % notes.length] ?? notes[0];
   const family = [
     { name: names[0], img: ART.annie, pts: 2950 },
     { name: names[1], img: ART.michael, pts: 3750 },
@@ -370,7 +336,7 @@ export function BonusView() {
         )}
         {hud.phase !== "title" && (
         <div className="sky-motes" aria-hidden>
-          {Array.from({ length: 14 }, (_, i) => (
+          {Array.from({ length: 5 }, (_, i) => (
             <img
               key={i}
               className="mote"
@@ -465,6 +431,13 @@ export function BonusView() {
           Stage {Math.min(15, hud.level)} of 15 · {scene.name}
           <span>{left === 0 && playing ? "Stage ready" : `${fmt(scored)} / ${fmt(goal)} pts to pass`}</span>
         </p>
+        {hud.phase !== "title" && (
+          <p className="tally">
+            Hearts {hud.hitHeart} hit · {hud.missHeart} missed
+            <span>Diamonds {hud.hitGem} hit · {hud.missGem} missed</span>
+            <span>250s {hud.hitK} hit · {hud.missK} missed</span>
+          </p>
+        )}
 
         <p className="demo-disclaimer">Demo game only. Game score is separate from Family Points. Savings, Family Points and streaks are read-only simulated context — no real money, rewards or family account is connected.</p>
         <div className="game-controls">
@@ -485,11 +458,6 @@ export function BonusView() {
           className={`field${hud.phase === "title" ? " is-start" : ""}`}
           onPointerDown={onFieldPointer}
         >
-          <p className="love-note">
-            <img src={note.img} alt="" />
-            <span>{note.text}</span>
-            <Heart size={14} />
-          </p>
           {hud.phase === "title" &&
             [
               [18, 16, 54],
@@ -528,24 +496,32 @@ export function BonusView() {
                 opacity: Math.min(1, p.life / 0.35),
                 zIndex: p.fromStan ? 8 : p.kind === "kcoin" ? 6 : 5,
               }}
-              aria-label={p.kind === "kcoin" ? "250 love coin" : p.kind === "gem" ? "Rainbow" : "Heart"}
+              aria-label={p.kind === "kcoin" ? "250 love coin" : p.kind === "gem" ? "Diamond" : "Heart"}
               onClick={(e) => { if (e.detail === 0) gameRef.current?.tapId(p.id); }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 gameRef.current?.tapId(p.id);
               }}
             >
-              <img
-                src={
-                  p.kind === "kcoin"
-                    ? KCOIN_SPIN[((Math.floor(p.bob * 4) % 4) + 4) % 4]
-                    : p.kind === "gem"
-                      ? (Math.floor(p.bob) % 2 === 0 ? STAR : NOTE)
+              {p.kind !== "gem" ? (
+                <img
+                  src={
+                    p.kind === "kcoin"
+                      ? KCOIN_SPIN[((Math.floor(p.bob * 4) % 4) + 4) % 4]
                       : HEART
-                }
-                alt=""
-                draggable={false}
-              />
+                  }
+                  alt=""
+                  draggable={false}
+                />
+              ) : (
+                <img className="gem-face" src={GEM} alt="" draggable={false} />
+              )}
+              {p.kind === "gem" && (
+                <span className="diamond" aria-hidden>
+                  <b />
+                  <em />
+                </span>
+              )}
               {p.fromStan && <span className="star-streak" aria-hidden />}
               {p.kind === "kcoin" && (
                 <span className="kcoin-tag">
@@ -622,34 +598,6 @@ export function BonusView() {
                 <i />
               </button>
             </div>
-          )}
-          <div className={`stan-anchor pose-${hud.stanPose}`}>
-            <img
-              className="stan-field"
-              src={STAN_IMG[hud.stanPose]}
-              alt="Stan"
-              draggable={false}
-            />
-            <span ref={handRef} className="stan-hand" aria-hidden />
-          </div>
-          <div className="nova-anchor">
-            <img
-              className={`nova-field pose-${hud.novaPose}${hud.novaPose === "point" ? " glow" : ""}`}
-              src={NOVA_IMG[hud.novaPose]}
-              alt="Nova"
-              draggable={false}
-            />
-            {hud.novaLine && playing && <p className="nova-bubble">{hud.novaLine}</p>}
-          </div>
-          {throwFilm > 0 && playing && (
-            <video
-              key={throwFilm}
-              className="throw-film"
-              src="/video/stan-throw.mp4"
-              autoPlay
-              muted
-              playsInline
-            />
           )}
         </div>
 
@@ -731,19 +679,45 @@ export function BonusView() {
               </div>
             )}
 
+            {hud.phase === "results" && hud.finale && (
+              <div className="fireworks" aria-hidden>
+                {Array.from({ length: 18 }, (_, i) => (
+                  <span
+                    key={i}
+                    className="fw"
+                    style={{
+                      left: `${6 + (i * 5.2) % 88}%`,
+                      animationDelay: `${(i % 6) * 0.28}s`,
+                      color: ["#ff5b8a", "#ffe56a", "#fff", "#b07cff", "#7ad0ff", "#ff9ad8"][i % 6],
+                    }}
+                  >
+                    <i />
+                  </span>
+                ))}
+              </div>
+            )}
             {hud.phase === "results" && (
               <div className="panel">
-                <p className="eyebrow">{hud.power === "nuke" ? "Nuke cleared the stage" : hud.bonusHit ? "Family bonus unlocked" : "Round done."}</p>
-                <h2>{hud.stageCleared ? "Stage cleared." : "Not this time."}</h2>
-                <p className="result tabular">{fmt(hud.roundScore)}</p>
-                <p className="lede">
-                  {hud.stageCleared
-                    ? hud.level >= 15
-                      ? `You scored ${fmt(hud.roundScore)}. Stage 15 stays open.`
-                      : `You scored ${fmt(hud.roundScore)}. Next stage is ready.`
-                    : `You scored ${fmt(hud.roundScore)}. This stage needs ${fmt(hud.stageNeed)}.`}
-                </p>
-                <p className="best">Family points stay with KYREC Core. This is a love round.</p>
+                {hud.finale ? (
+                  <>
+                    <p className="eyebrow">Level 15 cleared</p>
+                    <h2>Valentine Crush</h2>
+                    <p className="result tabular">{fmt(hud.familyPoints)}</p>
+                    <p className="lede">Family points gathered. This round added {fmt(hud.familyGain)}.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="eyebrow">{hud.power === "nuke" ? "Nuke cleared the stage" : hud.bonusHit ? "Family bonus unlocked" : "Round done."}</p>
+                    <h2>{hud.stageCleared ? "Stage cleared." : "Not this time."}</h2>
+                    <p className="result tabular">{fmt(hud.roundScore)}</p>
+                    <p className="lede">
+                      {hud.stageCleared
+                        ? `Stage cleared. +${fmt(hud.familyGain)} family points. Miss the stage and that payout is gone.`
+                        : `No family points. Clear the stage to bank them. This one needs ${fmt(hud.stageNeed)}.`}
+                    </p>
+                  </>
+                )}
+                <p className="best">Hearts {hud.hitHeart} hit, {hud.missHeart} missed · Diamonds {hud.hitGem} hit, {hud.missGem} missed · 250s {hud.hitK} hit, {hud.missK} missed</p>
                 <p className="best">Team level {hud.level} · {scene.name} · {hud.totalCoins} lifetime hearts</p>
                 <div className="actions">
                   <button ref={resumeRef} type="button" className="btn-primary" onClick={begin}>

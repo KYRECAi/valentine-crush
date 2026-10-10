@@ -6,7 +6,8 @@ export const ROUND_MAX = 20;
 export const BONUS_GOAL = 100;
 export const BEST_TEAM_BASE = 2800;
 
-const GRAVITY = 58;
+const GRAVITY = 28;
+const FALL = 0.72;
 const STAN_X = 16;
 const STAN_Y = 64;
 
@@ -14,7 +15,7 @@ export type Phase = "title" | "playing" | "paused" | "results";
 export type Pose = "idle" | "smirk" | "fire" | "win";
 export type StanPose = "idle" | "throw" | "follow";
 export type NovaPose = "idle" | "point" | "cheer";
-export type Kind = "coin" | "gem" | "kcoin";
+export type Kind = "coin" | "gem" | "kcoin" | "bomb";
 
 export type Pickup = {
   id: number;
@@ -69,6 +70,7 @@ export type Cue =
   | "rush"
   | "laser"
   | "nuke"
+  | "bomb"
   | "bonus"
   | "win"
   | "start"
@@ -143,6 +145,7 @@ const KIND: Record<Kind, { value: number; coins: number; size: number; life: num
   coin: { value: 10, coins: 1, size: 70, life: 6.4 },
   gem: { value: 40, coins: 3, size: 62, life: 6.2 },
   kcoin: { value: 250, coins: 10, size: 92, life: 6.8 },
+  bomb: { value: 0, coins: 0, size: 78, life: 6.4 },
 };
 
 function comboLabel(n: number) {
@@ -215,8 +218,10 @@ export function createBonus() {
   let missSaid = 0;
   let reducedShake = save0.reducedShake;
   let releaseIn = 0;
-  let handX = 22;
-  let handY = 58;
+  let handX = 18;
+  let handY = 72;
+  let novaX = 82;
+  let novaY = 70;
   let novaPointed = false;
   let throwHold = 0;
   let spawnBudget = 0;
@@ -348,6 +353,7 @@ export function createBonus() {
 
   function spawn(kind: Kind, lane = laneCursor++ % LANES) {
     if (kind === "kcoin" && hud.pickups.some((p) => p.kind === "kcoin")) kind = "coin";
+    if (kind === "bomb" && hud.pickups.filter((p) => p.kind === "bomb").length >= 4) kind = "coin";
     const spec = KIND[kind];
     const jitter = (Math.random() - 0.5) * 3.2;
     const x = 4 + ((lane + 0.5) / LANES) * 92 + jitter;
@@ -355,9 +361,9 @@ export function createBonus() {
       id: id++,
       kind,
       x: Math.min(96, Math.max(4, x)),
-      y: -12 - (lane % 5) * 8 - Math.random() * 14,
+      y: kind === "bomb" ? 6 + Math.random() * 22 : -12 - (lane % 5) * 8 - Math.random() * 14,
       vx: (Math.random() * 2 - 1) * 2.4,
-      vy: (46 + (lane % 3) * 8 + Math.random() * 10 + (hud.onFire ? 10 : 0)) * (0.96 + (hud.level - 1) * 0.015),
+      vy: (22 + (lane % 3) * 4 + Math.random() * 5 + (hud.onFire ? 5 : 0)) * (0.96 + (hud.level - 1) * 0.01),
       rot: Math.random() * 30 - 15,
       vr: (Math.random() * 2 - 1) * 28,
       life: spec.life,
@@ -371,7 +377,7 @@ export function createBonus() {
   }
 
   function rainFromSky(count: number) {
-    const cap = hud.onFire ? 16 : 14;
+    const cap = hud.onFire ? 28 : 24;
     const n = Math.min(count, Math.max(0, cap - hud.pickups.length));
     const lanes = Array.from({ length: LANES }, (_, i) => (laneCursor + i) % LANES);
     laneCursor = (laneCursor + 3) % LANES;
@@ -380,14 +386,12 @@ export function createBonus() {
       spawn(rollKind(hud.combo), lanes[i % LANES]);
       made += 1;
     }
+    if (hud.pickups.filter((p) => p.kind === "bomb").length < 2) spawn("bomb");
     return made;
   }
 
-  function shootHearts(fromX: number, fromY: number) {
+  function shootFrom(fromX: number, fromY: number, targets: number[], heights: number[]) {
     const spec = KIND.coin;
-    const targets = [6, 18, 30, 42, 54, 66, 78, 90];
-    const heights = [-8, 4, -12, 8, -2, 10, 0, 6];
-    hud.shake = Math.min(1, hud.shake + 0.2);
     for (let i = 0; i < targets.length; i++) {
       hud.pickups.push({
         id: id++,
@@ -397,28 +401,34 @@ export function createBonus() {
         vx: 0,
         vy: 0,
         rot: -20,
-        vr: 220,
-        life: 4.6,
-        maxLife: 4.6,
-        size: 34,
+        vr: 180,
+        life: 4.8,
+        maxLife: 4.8,
+        size: 30,
         bob: i,
         value: spec.value,
         coins: spec.coins,
         fromStan: true,
-        z: -i * 0.07,
+        z: -0.2 - i * 0.12,
         ox: fromX,
         oy: fromY,
         tx: targets[i],
         ty: heights[i],
       });
     }
-    burst(fromX, fromY, 10, 340);
+    burst(fromX, fromY, 8, 340);
+  }
+
+  function shootHearts(fromX: number, fromY: number) {
+    hud.shake = Math.min(1, hud.shake + 0.25);
+    shootFrom(fromX, fromY, [8, 22, 36, 50, 64, 78, 92, 48], [-12, -4, 2, -10, 6, -2, 8, 0]);
   }
 
   function rollKind(combo: number): Kind {
     const r = Math.random();
-    if (r < 0.08 + Math.min(0.07, combo * 0.005)) return "kcoin";
-    if (r < 0.42) return "gem";
+    if (r < 0.14) return "bomb";
+    if (r < 0.22 + Math.min(0.07, combo * 0.005)) return "kcoin";
+    if (r < 0.4) return "gem";
     return "coin";
   }
 
@@ -429,12 +439,39 @@ export function createBonus() {
     } else if (kind === "kcoin") {
       if (hit) hud.hitK += 1;
       else hud.missK += 1;
+    } else if (kind === "bomb") {
+      return;
     } else if (hit) hud.hitHeart += 1;
     else hud.missHeart += 1;
   }
 
+  function detonate(target: Pickup) {
+    const gone = hud.pickups.filter((p) => {
+      if (p.id === target.id || p.kind !== "coin") return false;
+      const dx = p.x - target.x;
+      const dy = p.y - target.y;
+      return dx * dx + dy * dy < 22 * 22;
+    });
+    const lost = 200 + gone.length * 25;
+    hud.pickups = hud.pickups.filter((p) => p.id !== target.id && !gone.some((g) => g.id === p.id));
+    hud.roundScore = Math.max(0, hud.roundScore - lost);
+    hud.combo = 0;
+    hud.comboLabel = "Ready";
+    hud.multiplier = 1;
+    hud.onFire = false;
+    hud.shake = 1;
+    hud.flash = 1;
+    float(target.x, target.y, `-${lost}`, "fire");
+    burst(target.x, target.y, 36, 18);
+    cue("bomb");
+  }
+
   function collect(target: Pickup) {
     if (hud.phase !== "playing") return;
+    if (target.kind === "bomb") {
+      detonate(target);
+      return;
+    }
     hud.pickups = hud.pickups.filter((p) => p.id !== target.id);
     const mult = hud.multiplier;
     const scored = Math.round(target.value * mult);
@@ -554,18 +591,21 @@ export function createBonus() {
     pose("fire", 1.4);
   }
 
+  let nukeArm = false;
+
   function fireNuke() {
     nukeUsed = true;
+    hud.nukeReady = false;
     hud.pickups = [];
     hud.roundScore += 800;
     hud.flash = 1;
     hud.shake = 1;
     hud.power = "nuke";
-    powerT = 1.1;
+    powerT = 0.9;
+    nukeArm = true;
     float(50, 34, "NUKE", "fire");
     burst(50, 50, 48, 40);
     cue("nuke");
-    finish(true);
   }
 
   function finish(forced = false) {
@@ -601,6 +641,11 @@ export function createBonus() {
     say(pickLine(endKey), 2.6);
     cue(endKey);
     cue("win");
+  }
+
+  function startOver() {
+    writeSave({ stage: 1 });
+    start();
   }
 
   function start() {
@@ -639,6 +684,7 @@ export function createBonus() {
     spawnBudget = spawnTotal;
     laserUsed = false;
     nukeUsed = false;
+    nukeArm = false;
     hud.laserReady = false;
     hud.nukeReady = false;
     powerT = 0;
@@ -708,7 +754,14 @@ export function createBonus() {
     cues.length = 0;
     if (powerT > 0) {
       powerT -= dt;
-      if (powerT <= 0) hud.power = null;
+      if (powerT <= 0) {
+        hud.power = null;
+        if (nukeArm) {
+          nukeArm = false;
+          finish(true);
+          return cues;
+        }
+      }
     }
     if (hud.phase !== "playing") {
       hud.shake = Math.max(0, hud.shake - dt * 2);
@@ -777,9 +830,9 @@ export function createBonus() {
     const hurry = hud.timeLeft <= 5 ? 0.9 : 1;
     const volleyGap = (hud.onFire ? 0.72 : 0.95) * hurry;
     spawnAcc += dt;
-    if (spawnAcc >= volleyGap && hud.pickups.length < (hud.onFire ? 22 : 18)) {
+    if (spawnAcc >= volleyGap && hud.pickups.length < (hud.onFire ? 32 : 26)) {
       spawnAcc = 0;
-      rainFromSky(hud.onFire ? 6 : 5);
+      rainFromSky(hud.onFire ? 10 : 8);
     }
 
     hud.anim += dt;
@@ -793,7 +846,9 @@ export function createBonus() {
       : Math.floor(hud.anim * 8) % 12;
 
     const hasK = hud.pickups.some((p) => p.kind === "kcoin");
-    if (hasK) {
+    if (throwHold > 0) {
+      hud.novaPose = "cheer";
+    } else if (hasK) {
       hud.novaPose = "point";
       if (novaTalk <= 0) {
         hud.novaLine = NOVA_POINT[pointI++ % NOVA_POINT.length];
@@ -845,8 +900,8 @@ export function createBonus() {
       }
       p.vx *= Math.max(0, 1 - 0.35 * dt);
       p.x += p.vx * dt + Math.sin(p.bob) * 1.6 * dt;
-      p.y += p.vy * dt;
-      p.vy += GRAVITY * dt;
+      p.y += p.vy * dt * FALL;
+      p.vy += GRAVITY * dt * FALL;
       p.rot += p.vr * dt;
     }
     hud.pickups = hud.pickups.filter((p) => {
@@ -909,9 +964,11 @@ export function createBonus() {
     reducedShake = v;
   }
 
-  function setHand(x: number, y: number) {
-    if (Number.isFinite(x)) handX = x;
-    if (Number.isFinite(y)) handY = y;
+  function setHands(sx: number, sy: number, nx: number, ny: number) {
+    if (Number.isFinite(sx)) handX = sx;
+    if (Number.isFinite(sy)) handY = sy;
+    if (Number.isFinite(nx)) novaX = nx;
+    if (Number.isFinite(ny)) novaY = ny;
   }
 
   function resetProgress() {
@@ -949,9 +1006,10 @@ export function createBonus() {
     tapId,
     snapshot,
     setReducedShake,
-    setHand,
+    setHands,
     usePower,
     resetProgress,
+    startOver,
   };
 }
 

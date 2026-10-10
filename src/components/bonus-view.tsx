@@ -69,6 +69,7 @@ function applyCues(
     else if (c === "rush") audio?.rush();
     else if (c === "laser") audio?.laser();
     else if (c === "nuke") audio?.nuke();
+    else if (c === "bomb") audio?.fire();
     else if (c === "fire") {
       audio?.fire();
     } else if (c === "bonus") {
@@ -274,6 +275,15 @@ export function BonusView() {
     speak("start", !voiceOn, gameRef.current?.hud.line ?? undefined);
   }
 
+  function startAgain() {
+    const audio = audioRef.current;
+    audio?.unlock();
+    audio?.setMusicOn(musicOn);
+    if (musicOn) audio?.startMusic();
+    gameRef.current?.startOver();
+    speak("start", !voiceOn, gameRef.current?.hud.line ?? undefined);
+  }
+
   function toggleMusic() {
     const next = !musicOn;
     setMusicOn(next);
@@ -311,9 +321,6 @@ export function BonusView() {
   const sx = playing && !reducedMotion ? (Math.random() * 2 - 1) * 18 * shake : 0;
   const sy = playing && !reducedMotion ? (Math.random() * 2 - 1) * 14 * shake : 0;
   const progressLabel = hud.bonusTaps >= BONUS_GOAL ? `${BONUS_GOAL} / ${BONUS_GOAL}` : `${hud.bonusTaps} / ${BONUS_GOAL}`;
-  const when = new Date();
-  const dateLabel = when.toLocaleDateString("en-AU", { day: "numeric", month: "long" });
-  const timeLabel = when.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
   const family = [
     { name: names[0], img: ART.annie, pts: 2950 },
     { name: names[1], img: ART.michael, pts: 3750 },
@@ -321,9 +328,7 @@ export function BonusView() {
     { name: names[3], img: ART.kelly, pts: 2900, crown: true },
   ];
   const scene = sceneForLevel(hud.level);
-  const goal = playing ? hud.stageNeed : scene.need;
-  const scored = playing ? hud.roundScore : 0;
-  const left = Math.max(0, goal - scored);
+  const stageLook = ((Math.max(1, hud.level) - 1) % 15) + 1;
 
   return (
     <div className={`shell${reducedMotion ? " reduced-motion" : ""}`}>
@@ -376,24 +381,10 @@ export function BonusView() {
               }
             }}
           >
-            <ChevronLeft size={22} strokeWidth={2.4} />
+            <ChevronLeft size={18} strokeWidth={2.4} />
           </button>
           <div className={`time-pill${playing && hud.timeLeft <= 5 ? " hurry" : ""}`}>
-            <span>Time Left</span>
             <b className="tabular">{clock(hud.phase === "title" ? ROUND_TIME : hud.timeLeft)}</b>
-          </div>
-          <div className="love-pill">
-            <span className="love-bit">
-              <img src={ART.coin} alt="" />
-              <b className="tabular">{fmt(hud.coinsCollected)}</b>
-            </span>
-            <span className="love-when">
-              <b>{dateLabel}</b>
-              <small>{timeLabel}</small>
-            </span>
-            <span className="love-bit">
-              <b className="tabular">{fmt(hud.familyPoints)}</b>
-            </span>
           </div>
           <div className="sound-pair">
             <button
@@ -403,16 +394,7 @@ export function BonusView() {
               aria-label={musicOn ? "Turn music off" : "Turn music on"}
               onClick={toggleMusic}
             >
-              <Music size={16} strokeWidth={2.4} />
-            </button>
-            <button
-              type="button"
-              className={`ghost-round${voiceOn ? "" : " is-off"}`}
-              aria-pressed={voiceOn}
-              aria-label={voiceOn ? "Turn voice off" : "Turn voice on"}
-              onClick={toggleVoice}
-            >
-              {voiceOn ? <Volume2 size={16} strokeWidth={2.4} /> : <VolumeX size={16} strokeWidth={2.4} />}
+              <Music size={14} strokeWidth={2.4} />
             </button>
             <button
               type="button"
@@ -423,20 +405,12 @@ export function BonusView() {
                 setSettingsOpen(true);
               }}
             >
-              <Settings size={16} strokeWidth={2.4} />
+              <Settings size={14} strokeWidth={2.4} />
             </button>
           </div>
         </header>
-        <p className="level-chip">
-          Stage {Math.min(15, hud.level)} of 15 · {scene.name}
-          <span>{left === 0 && playing ? "Stage ready" : `${fmt(scored)} / ${fmt(goal)} pts to pass`}</span>
-        </p>
         {hud.phase !== "title" && (
-          <p className="tally">
-            Hearts {hud.hitHeart} hit · {hud.missHeart} missed
-            <span>Diamonds {hud.hitGem} hit · {hud.missGem} missed</span>
-            <span>250s {hud.hitK} hit · {hud.missK} missed</span>
-          </p>
+          <h1 className={`stage-title s${stageLook}`}>{scene.name}</h1>
         )}
 
         <p className="demo-disclaimer">Demo game only. Game score is separate from Family Points. Savings, Family Points and streaks are read-only simulated context — no real money, rewards or family account is connected.</p>
@@ -496,14 +470,22 @@ export function BonusView() {
                 opacity: Math.min(1, p.life / 0.35),
                 zIndex: p.fromStan ? 8 : p.kind === "kcoin" ? 6 : 5,
               }}
-              aria-label={p.kind === "kcoin" ? "250 love coin" : p.kind === "gem" ? "Diamond" : "Heart"}
+              aria-label={p.kind === "bomb" ? "Bomb" : p.kind === "kcoin" ? "250 love coin" : p.kind === "gem" ? "Diamond" : "Heart"}
               onClick={(e) => { if (e.detail === 0) gameRef.current?.tapId(p.id); }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 gameRef.current?.tapId(p.id);
               }}
             >
-              {p.kind !== "gem" ? (
+              {p.kind === "bomb" ? (
+                <svg className="bomb-svg" viewBox="0 0 64 64" aria-hidden>
+                  <circle cx="32" cy="40" r="18" fill="#141414" stroke="#ff2a2a" strokeWidth="3" />
+                  <ellipse cx="24" cy="34" rx="5" ry="3.5" fill="#6e6e6e" />
+                  <path d="M42 28c6-8 12-12 16-16" fill="none" stroke="#6a4630" strokeWidth="3" strokeLinecap="round" />
+                  <circle cx="58" cy="10" r="4.5" fill="#ffe14a" />
+                  <circle cx="58" cy="10" r="2" fill="#ff5a12" />
+                </svg>
+              ) : p.kind !== "gem" ? (
                 <img
                   src={
                     p.kind === "kcoin"
@@ -564,12 +546,6 @@ export function BonusView() {
               />
             );
           })}
-
-          <div className="ground" aria-hidden="true">
-            <span className="ground-floor" />
-            <span className="ground-edge" />
-            <span className="ground-disc" />
-          </div>
 
           {playing && (
             <div className="power-rail">
@@ -681,18 +657,35 @@ export function BonusView() {
 
             {hud.phase === "results" && hud.finale && (
               <div className="fireworks" aria-hidden>
-                {Array.from({ length: 18 }, (_, i) => (
+                {Array.from({ length: 36 }, (_, i) => (
                   <span
-                    key={i}
-                    className="fw"
+                    key={`fw-${i}`}
+                    className={`fw${i % 3 === 0 ? " fw-big" : ""}`}
                     style={{
-                      left: `${6 + (i * 5.2) % 88}%`,
-                      animationDelay: `${(i % 6) * 0.28}s`,
-                      color: ["#ff5b8a", "#ffe56a", "#fff", "#b07cff", "#7ad0ff", "#ff9ad8"][i % 6],
+                      left: `${4 + ((i * 17) % 92)}%`,
+                      animationDelay: `${(i % 9) * 0.22}s`,
+                      animationDuration: `${1.7 + (i % 5) * 0.28}s`,
+                      color: ["#ff4d7a", "#ffe56a", "#fff", "#c9a4ff", "#7ad0ff", "#ffd36a", "#ff9ad8"][i % 7],
                     }}
                   >
                     <i />
                   </span>
+                ))}
+                {Array.from({ length: 26 }, (_, i) => (
+                  <img
+                    key={`kc-${i}`}
+                    className="kyrec-shot"
+                    src={KCOIN_SPIN[i % KCOIN_SPIN.length]}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      left: `${3 + ((i * 13) % 90)}%`,
+                      animationDelay: `${(i % 8) * 0.18}s`,
+                      animationDuration: `${2.1 + (i % 4) * 0.35}s`,
+                      width: 28 + (i % 4) * 14,
+                      height: 28 + (i % 4) * 14,
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -720,8 +713,8 @@ export function BonusView() {
                 <p className="best">Hearts {hud.hitHeart} hit, {hud.missHeart} missed · Diamonds {hud.hitGem} hit, {hud.missGem} missed · 250s {hud.hitK} hit, {hud.missK} missed</p>
                 <p className="best">Team level {hud.level} · {scene.name} · {hud.totalCoins} lifetime hearts</p>
                 <div className="actions">
-                  <button ref={resumeRef} type="button" className="btn-primary" onClick={begin}>
-                    Play again
+                  <button ref={resumeRef} type="button" className="btn-primary" onClick={hud.finale ? startAgain : begin}>
+                    {hud.finale ? "Start again" : "Play again"}
                   </button>
                   <button type="button" className="btn-ghost" onClick={() => gameRef.current?.toTitle()}>
                     Home

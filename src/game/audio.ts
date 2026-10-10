@@ -17,7 +17,7 @@ export function createAudio() {
     const sfx = ctx.createGain();
     const music = ctx.createGain();
     sfx.gain.value = 0.72;
-    music.gain.value = musicOn ? 0.28 : 0;
+    music.gain.value = musicOn ? 0.55 : 0;
     master.gain.value = 0.9;
     sfx.connect(master);
     music.connect(master);
@@ -33,7 +33,7 @@ export function createAudio() {
   function setMusicOn(next: boolean) {
     musicOn = next;
     if (bus && ctx) {
-      bus.music.gain.setTargetAtTime(next ? 0.28 : 0, ctx.currentTime, 0.01);
+      bus.music.gain.setTargetAtTime(next ? 0.55 : 0, ctx.currentTime, 0.01);
     }
   }
 
@@ -98,32 +98,26 @@ export function createAudio() {
 
   function startMusic() {
     if (musicTimer != null) return;
-    const bass = [98, 98, 123, 146, 110, 98, 131, 164];
-    const lead = [523, 659, 784, 880, 1046, 880, 784, 659];
+    // Sakura, in the Japanese in-scale, slow enough to hear.
+    const lead = [659, 659, 698, 880, 659, 659, 698, 880, 698, 880, 988, 880, 698, 659, 587, 659];
+    const bass = [220, 220, 247, 196, 220, 175, 196, 220];
     const tick = () => {
       if (!ctx || !musicOn) {
-        musicTimer = window.setTimeout(tick, 140);
+        musicTimer = window.setTimeout(tick, 280);
         return;
       }
-      const beat = musicStep % 16;
-      const tempo = 168;
-      if (beat % 8 === 0) {
-        beep(130, 0.08, "sine", 0.12, "music", 55);
-        noise(0.03, 0.035, 180);
+      const step = musicStep % lead.length;
+      const tempo = 320;
+      beep(lead[step]!, 0.42, "triangle", 0.11, "music");
+      beep(lead[step]! / 2, 0.5, "sine", 0.04, "music");
+      if (step % 4 === 0) {
+        beep(bass[(step / 4) % bass.length]!, 0.46, "sine", 0.07, "music");
       }
-      if (beat % 8 === 4) noise(0.04, 0.02, 900);
-      if (beat % 4 === 0) {
-        const b = bass[(musicStep / 4) % bass.length]!;
-        beep(b, 0.1, "triangle", 0.03, "music");
-      }
-      if (beat % 2 === 0) {
-        const n = lead[(musicStep / 2) % lead.length]!;
-        beep(n, 0.09, "sine", 0.02, "music");
-      }
+      if (step % 8 === 0) beep(98, 0.18, "sine", 0.06, "music", 70);
       musicStep++;
       musicTimer = window.setTimeout(tick, tempo);
     };
-    musicTimer = window.setTimeout(tick, 2200);
+    musicTimer = window.setTimeout(tick, 280);
   }
 
   function stopMusic() {

@@ -59,12 +59,12 @@ export function pickLine(key: LineKey): string {
   return line;
 }
 
-const CLIP: Partial<Record<LineKey, string>> = {
-  ready: "/voice/start.mp3",
-  start: "/voice/start.mp3",
-  endlow: "/voice/end.mp3",
-  endhot: "/voice/end.mp3",
-};
+const CLIPS = Object.fromEntries(
+  (Object.keys(BANKS) as LineKey[]).map((key) => [
+    key,
+    BANKS[key].map((_, index) => `/voice/${key}-${index}.mp3`),
+  ]),
+) as Record<LineKey, string[]>;
 
 let current: HTMLAudioElement | null = null;
 
@@ -83,8 +83,10 @@ function playClip(src: string | undefined, muted: boolean) {
   void audio.play().catch(() => {});
 }
 
-export function speak(key: LineKey, muted: boolean, _text?: string) {
-  playClip(CLIP[key], muted);
+export function speak(key: LineKey, muted: boolean, text?: string) {
+  const bank: readonly string[] = BANKS[key];
+  const index = text === undefined ? 0 : Math.max(0, bank.indexOf(text));
+  playClip(CLIPS[key][index], muted);
 }
 
 export function speakNova(which: "height" | "higher", muted: boolean) {
@@ -100,9 +102,9 @@ export function silence() {
 
 export function preloadVoices() {
   if (typeof window === "undefined") return;
-  Object.values(CLIP).forEach((src) => {
-    if (src) new Audio(src).load();
+  Object.values(CLIPS).flat().forEach((src) => {
+    new Audio(src).load();
   });
-  new Audio("/voice/height.mp3").load();
-  new Audio("/voice/higher.mp3").load();
+  // Nova's optional height/higher recordings are not bundled or used by the
+  // current game. Do not request them eagerly on every title-screen visit.
 }

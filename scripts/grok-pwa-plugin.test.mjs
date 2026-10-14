@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import test from "node:test";
+import test, { after } from "node:test";
 import {
   appNameFromHost,
-  createHeadInjector,
+  createHeadInjector as createHeadInjectorFromWorkspace,
   grokXCreatorHeadTags,
-  injectGrokPwaHead,
+  injectGrokPwaHead as injectGrokPwaHeadFromWorkspace,
   isDocumentPath,
   isInstallQuery,
   publicAppHost,
@@ -20,6 +20,28 @@ import {
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const EMPTY_WORKSPACE = mkdtempSync(join(tmpdir(), "grok-pwa-test-"));
+after(() => rmSync(EMPTY_WORKSPACE, { recursive: true, force: true }));
+
+// Generic platform cases must not inherit this game's identity or public card.
+// Tests of filesystem discovery pass their own cwd explicitly below.
+function injectGrokPwaHead(html, ctx = {}) {
+  return injectGrokPwaHeadFromWorkspace(html, { cwd: EMPTY_WORKSPACE, ...ctx });
+}
+
+function createHeadInjector(ctx = {}) {
+  return createHeadInjectorFromWorkspace({ cwd: EMPTY_WORKSPACE, ...ctx });
+}
+
+test("the game identity overrides document and host fallbacks", () => {
+  const out = injectGrokPwaHead("<html><head><title>Fallback</title></head></html>", {
+    cwd: TEMPLATE_ROOT,
+    host: "wild-race.grok.me",
+  });
+  assert.match(out, /property="og:title" content="Valentine Crush"/);
+  assert.match(out, /apple-mobile-web-app-title" content="Valentine Crush"/);
+  assert.match(out, /property="og:type" content="x:game"/);
+});
 
 test("injects before </head>", () => {
   const out = injectGrokPwaHead("<html><head><title>x</title></head><body></body></html>");

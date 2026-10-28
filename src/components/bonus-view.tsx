@@ -69,7 +69,6 @@ function applyCues(
     else if (c === "rush") audio?.rush();
     else if (c === "laser") audio?.laser();
     else if (c === "nuke") audio?.nuke();
-    else if (c === "bomb") audio?.fire();
     else if (c === "fire") {
       audio?.fire();
     } else if (c === "bonus") {
@@ -328,6 +327,7 @@ export function BonusView() {
     { name: names[3], img: ART.kelly, pts: 2900, crown: true },
   ];
   const scene = sceneForLevel(hud.level);
+  const nextScene = hud.stageCleared && !hud.finale ? sceneForLevel(hud.level + 1) : null;
   const stageLook = ((Math.max(1, hud.level) - 1) % 15) + 1;
 
   return (
@@ -337,21 +337,21 @@ export function BonusView() {
         style={{ transform: `translate(${sx}px, ${sy}px)` }}
       >
         {hud.phase !== "title" && (
-          <img className="phone-bg" src={scene.bg} alt="" draggable={false} />
+          <img key={scene.bg} className="phone-bg" src={scene.bg} alt="" draggable={false} />
         )}
         {hud.phase !== "title" && (
         <div className="sky-motes" aria-hidden>
-          {Array.from({ length: 5 }, (_, i) => (
+          {Array.from({ length: 10 }, (_, i) => (
             <img
               key={i}
               className="mote"
-              src={i % 5 === 0 ? STAR : HEART}
+              src={i % 4 === 0 ? "/sprites/fx/petal.png" : i % 5 === 0 ? STAR : HEART}
               alt=""
               style={{
-                left: `${(i * 7.3) % 100}%`,
-                animationDuration: `${7 + (i % 5) * 1.4}s`,
-                animationDelay: `${-i * 0.8}s`,
-                width: 18 + (i % 4) * 10,
+                left: `${(i * 9.1) % 100}%`,
+                animationDuration: `${6.5 + (i % 5) * 1.2}s`,
+                animationDelay: `${-i * 0.7}s`,
+                width: i % 4 === 0 ? 16 : 16 + (i % 4) * 8,
               }}
             />
           ))}
@@ -470,22 +470,14 @@ export function BonusView() {
                 opacity: Math.min(1, p.life / 0.35),
                 zIndex: p.fromStan ? 8 : p.kind === "kcoin" ? 6 : 5,
               }}
-              aria-label={p.kind === "bomb" ? "Bomb" : p.kind === "kcoin" ? "250 love coin" : p.kind === "gem" ? "Diamond" : "Heart"}
+              aria-label={p.kind === "kcoin" ? "250 love coin" : p.kind === "gem" ? "Diamond" : "Heart"}
               onClick={(e) => { if (e.detail === 0) gameRef.current?.tapId(p.id); }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 gameRef.current?.tapId(p.id);
               }}
             >
-              {p.kind === "bomb" ? (
-                <svg className="bomb-svg" viewBox="0 0 64 64" aria-hidden>
-                  <circle cx="32" cy="40" r="18" fill="#141414" stroke="#ff2a2a" strokeWidth="3" />
-                  <ellipse cx="24" cy="34" rx="5" ry="3.5" fill="#6e6e6e" />
-                  <path d="M42 28c6-8 12-12 16-16" fill="none" stroke="#6a4630" strokeWidth="3" strokeLinecap="round" />
-                  <circle cx="58" cy="10" r="4.5" fill="#ffe14a" />
-                  <circle cx="58" cy="10" r="2" fill="#ff5a12" />
-                </svg>
-              ) : p.kind !== "gem" ? (
+              {p.kind !== "gem" ? (
                 <img
                   src={
                     p.kind === "kcoin"
@@ -698,6 +690,29 @@ export function BonusView() {
                     <p className="result tabular">{fmt(hud.familyPoints)}</p>
                     <p className="lede">Family points gathered. This round added {fmt(hud.familyGain)}.</p>
                   </>
+                ) : nextScene ? (
+                  <>
+                    <p className="eyebrow">{scene.name} cleared</p>
+                    <div className="handoff">
+                      <img src={nextScene.bg} alt="" draggable={false} />
+                      <span className="handoff-hearts" aria-hidden>
+                        {Array.from({ length: 7 }, (_, i) => (
+                          <img
+                            key={i}
+                            src={i % 3 === 0 ? "/sprites/fx/petal.png" : HEART}
+                            alt=""
+                            style={{
+                              left: `${8 + i * 13}%`,
+                              animationDelay: `${i * 0.18}s`,
+                              width: 18 + (i % 3) * 8,
+                            }}
+                          />
+                        ))}
+                      </span>
+                    </div>
+                    <h2>{nextScene.name}</h2>
+                    <p className="lede">That stage is done. {nextScene.name} is waiting. Score {fmt(nextScene.need)} to pass it.</p>
+                  </>
                 ) : (
                   <>
                     <p className="eyebrow">{hud.power === "nuke" ? "Nuke cleared the stage" : hud.bonusHit ? "Family bonus unlocked" : "Round done."}</p>
@@ -714,7 +729,7 @@ export function BonusView() {
                 <p className="best">Team level {hud.level} · {scene.name} · {hud.totalCoins} lifetime hearts</p>
                 <div className="actions">
                   <button ref={resumeRef} type="button" className="btn-primary" onClick={hud.finale ? startAgain : begin}>
-                    {hud.finale ? "Start again" : "Play again"}
+                    {hud.finale ? "Start again" : nextScene ? `Enter ${nextScene.name}` : "Play again"}
                   </button>
                   <button type="button" className="btn-ghost" onClick={() => gameRef.current?.toTitle()}>
                     Home

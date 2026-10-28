@@ -15,7 +15,7 @@ export type Phase = "title" | "playing" | "paused" | "results";
 export type Pose = "idle" | "smirk" | "fire" | "win";
 export type StanPose = "idle" | "throw" | "follow";
 export type NovaPose = "idle" | "point" | "cheer";
-export type Kind = "coin" | "gem" | "kcoin" | "bomb";
+export type Kind = "coin" | "gem" | "kcoin";
 
 export type Pickup = {
   id: number;
@@ -70,7 +70,6 @@ export type Cue =
   | "rush"
   | "laser"
   | "nuke"
-  | "bomb"
   | "bonus"
   | "win"
   | "start"
@@ -145,7 +144,6 @@ const KIND: Record<Kind, { value: number; coins: number; size: number; life: num
   coin: { value: 10, coins: 1, size: 70, life: 6.4 },
   gem: { value: 40, coins: 3, size: 62, life: 6.2 },
   kcoin: { value: 250, coins: 10, size: 92, life: 6.8 },
-  bomb: { value: 0, coins: 0, size: 78, life: 6.4 },
 };
 
 function comboLabel(n: number) {
@@ -353,7 +351,6 @@ export function createBonus() {
 
   function spawn(kind: Kind, lane = laneCursor++ % LANES) {
     if (kind === "kcoin" && hud.pickups.some((p) => p.kind === "kcoin")) kind = "coin";
-    if (kind === "bomb" && hud.pickups.filter((p) => p.kind === "bomb").length >= 4) kind = "coin";
     const spec = KIND[kind];
     const jitter = (Math.random() - 0.5) * 3.2;
     const x = 4 + ((lane + 0.5) / LANES) * 92 + jitter;
@@ -361,7 +358,7 @@ export function createBonus() {
       id: id++,
       kind,
       x: Math.min(96, Math.max(4, x)),
-      y: kind === "bomb" ? 6 + Math.random() * 22 : -12 - (lane % 5) * 8 - Math.random() * 14,
+      y: -12 - (lane % 5) * 8 - Math.random() * 14,
       vx: (Math.random() * 2 - 1) * 2.4,
       vy: (22 + (lane % 3) * 4 + Math.random() * 5 + (hud.onFire ? 5 : 0)) * (0.96 + (hud.level - 1) * 0.01),
       rot: Math.random() * 30 - 15,
@@ -386,7 +383,6 @@ export function createBonus() {
       spawn(rollKind(hud.combo), lanes[i % LANES]);
       made += 1;
     }
-    if (hud.pickups.filter((p) => p.kind === "bomb").length < 2) spawn("bomb");
     return made;
   }
 
@@ -426,9 +422,8 @@ export function createBonus() {
 
   function rollKind(combo: number): Kind {
     const r = Math.random();
-    if (r < 0.14) return "bomb";
-    if (r < 0.22 + Math.min(0.07, combo * 0.005)) return "kcoin";
-    if (r < 0.4) return "gem";
+    if (r < 0.08 + Math.min(0.07, combo * 0.005)) return "kcoin";
+    if (r < 0.26) return "gem";
     return "coin";
   }
 
@@ -439,39 +434,12 @@ export function createBonus() {
     } else if (kind === "kcoin") {
       if (hit) hud.hitK += 1;
       else hud.missK += 1;
-    } else if (kind === "bomb") {
-      return;
     } else if (hit) hud.hitHeart += 1;
     else hud.missHeart += 1;
   }
 
-  function detonate(target: Pickup) {
-    const gone = hud.pickups.filter((p) => {
-      if (p.id === target.id || p.kind !== "coin") return false;
-      const dx = p.x - target.x;
-      const dy = p.y - target.y;
-      return dx * dx + dy * dy < 22 * 22;
-    });
-    const lost = 200 + gone.length * 25;
-    hud.pickups = hud.pickups.filter((p) => p.id !== target.id && !gone.some((g) => g.id === p.id));
-    hud.roundScore = Math.max(0, hud.roundScore - lost);
-    hud.combo = 0;
-    hud.comboLabel = "Ready";
-    hud.multiplier = 1;
-    hud.onFire = false;
-    hud.shake = 1;
-    hud.flash = 1;
-    float(target.x, target.y, `-${lost}`, "fire");
-    burst(target.x, target.y, 36, 18);
-    cue("bomb");
-  }
-
   function collect(target: Pickup) {
     if (hud.phase !== "playing") return;
-    if (target.kind === "bomb") {
-      detonate(target);
-      return;
-    }
     hud.pickups = hud.pickups.filter((p) => p.id !== target.id);
     const mult = hud.multiplier;
     const scored = Math.round(target.value * mult);

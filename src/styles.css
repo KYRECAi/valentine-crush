@@ -116,6 +116,7 @@
   z-index: 0;
   pointer-events: none;
   transform-origin: center 42%;
+  animation: bg-arrive 0.8s ease both, ken 22s ease-in-out 0.8s infinite alternate;
 }
 
 .sky-motes {
@@ -1033,19 +1034,6 @@
   animation: settle 2.6s ease-in-out infinite;
 }
 
-.pickup-bomb {
-  background: transparent !important;
-  box-shadow: none;
-  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.45));
-}
-
-.bomb-svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  display: block;
-}
-
 .pickup-coin img {
   filter: drop-shadow(0 3px 5px rgb(160 110 10 / 0.4));
 }
@@ -1578,6 +1566,44 @@
   0% { transform: translateY(20px) scale(0.35) rotate(0deg); opacity: 0; }
   10% { opacity: 1; }
   100% { transform: translateY(-118vh) scale(1.2) rotate(420deg); opacity: 0.15; }
+}
+
+.handoff {
+  position: relative;
+  height: 168px;
+  margin: 8px 0 12px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.handoff > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: ken 14s ease-in-out infinite alternate;
+}
+
+.handoff-hearts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.handoff-hearts img {
+  position: absolute;
+  bottom: -12%;
+  animation: heart-rise 2.8s ease-in infinite;
+}
+
+@keyframes bg-arrive {
+  from { opacity: 0; transform: scale(1.08); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes heart-rise {
+  0% { transform: translateY(20px) rotate(-8deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-190px) rotate(18deg); opacity: 0; }
 }
 
 .panel {

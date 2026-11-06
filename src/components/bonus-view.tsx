@@ -1,3 +1,4 @@
+import { emitArcade, listenForPause, listenForPortrait, portraitRequired, newRunId } from "@/game/guardian-bridge";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import {
   ChevronLeft,
@@ -86,7 +87,7 @@ const emptyHud = (): Hud => ({
   phase: "title",
   timeLeft: ROUND_TIME,
   coinsCollected: 0,
-  familyPoints: 2450,
+  familyPoints: 0,
   familyGain: 0,
   totalCoins: 0,
   level: 1,
@@ -102,14 +103,14 @@ const emptyHud = (): Hud => ({
   finale: false,
   combo: 0,
   comboLabel: "Ready",
-  streak: 7,
+  streak: 0,
   multiplier: 1,
   onFire: false,
-  teamScore: 1250,
-  bestTeam: 2800,
+  teamScore: 0,
+  bestTeam: 0,
   bonusTaps: 0,
   pose: "idle",
-  familySaved: 42,
+  familySaved: 0,
   line: BANKS.ready[0],
   shake: 0,
   highScore: 0,
@@ -135,6 +136,7 @@ const emptyHud = (): Hud => ({
 
 export function BonusView() {
   const gameRef = useRef<ReturnType<typeof createBonus> | null>(null);
+  const runRef = useRef("");
   const audioRef = useRef<ReturnType<typeof createAudio> | null>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   const voiceOffRef = useRef(false);
@@ -181,7 +183,9 @@ export function BonusView() {
 
   useEffect(() => {
     const game = createBonus();
+    const detachPause = listenForPause("valentine", () => { game.pause(); audio.stopMusic(); silence(); });
     const audio = createAudio();
+    const detachPortrait = listenForPortrait(() => { game.pause(); audio.stopMusic(); silence(); });
     gameRef.current = game;
     audioRef.current = audio;
     preloadVoices();
@@ -233,6 +237,12 @@ export function BonusView() {
       if (acc > STEP) acc = 0;
       if (cues.length) applyCues(cues, audio, voiceOffRef.current, game.hud.line);
       const phase = game.hud.phase;
+      if (phase === "results" && lastPhase !== "results") {
+        emitArcade("valentine", "result", {
+          run: runRef.current, score: game.hud.roundScore, coins: game.hud.coinsCollected,
+          level: game.hud.level, cleared: game.hud.stageCleared,
+        });
+      }
       if (phase !== lastPhase || now - painted > 32) {
         lastPhase = phase;
         painted = now;
@@ -249,15 +259,19 @@ export function BonusView() {
     const vis = () => {
       if (document.hidden) {
         game.pause();
+        audio.stopMusic();
         silence();
       } else {
         audio.unlock();
       }
     };
+    emitArcade("valentine", "ready");
     document.addEventListener("visibilitychange", vis);
 
     return () => {
       motion.removeEventListener("change", applyMotion);
+      detachPortrait();
+      detachPause();
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", vis);
       silence();
@@ -265,20 +279,29 @@ export function BonusView() {
     };
   }, []);
 
+  useEffect(() => {
+    if (hud.phase === "playing" && musicOn) audioRef.current?.startMusic();
+    else audioRef.current?.stopMusic();
+  }, [hud.phase, musicOn]);
+
   function begin() {
+    if (portraitRequired()) return;
     const audio = audioRef.current;
     audio?.unlock();
     audio?.setMusicOn(musicOn);
     if (musicOn) audio?.startMusic();
+    runRef.current = newRunId();
     gameRef.current?.start();
     speak("start", !voiceOn, gameRef.current?.hud.line ?? undefined);
   }
 
   function startAgain() {
+    if (portraitRequired()) return;
     const audio = audioRef.current;
     audio?.unlock();
     audio?.setMusicOn(musicOn);
     if (musicOn) audio?.startMusic();
+    runRef.current = newRunId();
     gameRef.current?.startOver();
     speak("start", !voiceOn, gameRef.current?.hud.line ?? undefined);
   }
@@ -367,6 +390,8 @@ export function BonusView() {
           </button>
         )}
         <div className="phone-wash" />
+        <div className="arcade-rotate" role="status"><h2>Turn your phone upright</h2><p>Your game is paused. Use portrait mode to play.</p></div>
+        <p className="arcade-notice">Arcade play · game points only</p>
 
         <header className="love-top">
           <button
@@ -575,7 +600,7 @@ export function BonusView() {
         >
           <img src={ART.coin} alt="" className="bonus-heart" />
           <div className="bonus-copy">
-            <p>{hud.phase === "title" ? "Tap to start" : `Collect ${BONUS_GOAL} hearts for family bonus`}</p>
+            <p>{hud.phase === "title" ? "Tap to start" : `Collect ${BONUS_GOAL} hearts for arcade bonus`}</p>
             <div className="track">
               <div className="fill" style={{ width: `${bonusPct}%` }} />
             </div>
@@ -603,7 +628,7 @@ export function BonusView() {
               </p>
             </div>
             <div className="meter">
-              <p className="meter-kicker">Family Love Meter</p>
+              <p className="meter-kicker">Heart meter</p>
               <div className="love-meter">
                 <span style={{ width: `${lovePct}%` }} />
               </div>
@@ -616,7 +641,7 @@ export function BonusView() {
                 <img src={mate.img} alt="" />
                 <figcaption>
                   <b>{mate.name}</b>
-                  <span className="tabular">{fmt(mate.pts)}</span>
+                  <span>Game team</span>
                 </figcaption>
               </figure>
             ))}
@@ -631,7 +656,7 @@ export function BonusView() {
                 <h2>We'll hold this with you.</h2>
                 <p className="lede">{clock(hud.timeLeft)} left on the clock.</p>
                 <div className="actions">
-                  <button ref={resumeRef} type="button" className="btn-primary" onClick={() => gameRef.current?.resume()}>
+                  <button ref={resumeRef} type="button" className="btn-primary" onClick={() => { audioRef.current?.unlock(); if (musicOn) audioRef.current?.startMusic(); gameRef.current?.resume(); }}>
                     Resume
                   </button>
                   <button type="button" className="btn-ghost" onClick={begin}>
@@ -688,7 +713,7 @@ export function BonusView() {
                     <p className="eyebrow">Level 15 cleared</p>
                     <h2>Valentine Crush</h2>
                     <p className="result tabular">{fmt(hud.familyPoints)}</p>
-                    <p className="lede">Family points gathered. This round added {fmt(hud.familyGain)}.</p>
+                    <p className="lede">Arcade points gathered. This round added {fmt(hud.familyGain)}.</p>
                   </>
                 ) : nextScene ? (
                   <>
@@ -715,13 +740,13 @@ export function BonusView() {
                   </>
                 ) : (
                   <>
-                    <p className="eyebrow">{hud.power === "nuke" ? "Nuke cleared the stage" : hud.bonusHit ? "Family bonus unlocked" : "Round done."}</p>
+                    <p className="eyebrow">{hud.power === "nuke" ? "Nuke cleared the stage" : hud.bonusHit ? "Arcade bonus unlocked" : "Round done."}</p>
                     <h2>{hud.stageCleared ? "Stage cleared." : "Not this time."}</h2>
                     <p className="result tabular">{fmt(hud.roundScore)}</p>
                     <p className="lede">
                       {hud.stageCleared
-                        ? `Stage cleared. +${fmt(hud.familyGain)} family points. Miss the stage and that payout is gone.`
-                        : `No family points. Clear the stage to bank them. This one needs ${fmt(hud.stageNeed)}.`}
+                        ? `Stage cleared. +${fmt(hud.familyGain)} game points. Miss the stage and that payout is gone.`
+                        : `No game points. Clear the stage to bank them. This one needs ${fmt(hud.stageNeed)}.`}
                     </p>
                   </>
                 )}

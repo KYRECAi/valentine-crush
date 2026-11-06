@@ -12,7 +12,8 @@ export function createAudio() {
   function ensure() {
     if (ctx) return;
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    ctx = new AC({ latencyHint: "interactive" });
+    if (!AC) return;
+    try { ctx = new AC({ latencyHint: "interactive" }); } catch { return; }
     const master = ctx.createGain();
     const sfx = ctx.createGain();
     const music = ctx.createGain();
@@ -27,7 +28,7 @@ export function createAudio() {
 
   function unlock() {
     ensure();
-    if (ctx && ctx.state === "suspended") void ctx.resume();
+    if (ctx && ctx.state === "suspended") void ctx.resume().catch(() => {});
   }
 
   function setMusicOn(next: boolean) {
@@ -185,7 +186,7 @@ export function createAudio() {
     },
     dispose() {
       stopMusic();
-      void ctx?.close();
+      void ctx?.close().catch(() => {});
       ctx = null;
       bus = null;
     },

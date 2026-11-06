@@ -1,4 +1,6 @@
-const KEY = "moneybags-bonus-v1";
+import { createGameStorage } from "./guardian-bridge.ts";
+const KEY = "kyrec.valentine.arcade.v1";
+const gameStorage = createGameStorage(KEY);
 const SAVE_VERSION = 1;
 
 export type SaveData = {
@@ -25,11 +27,11 @@ const defaults: SaveData = {
   totalCoins: 0,
   highScore: 0,
   bestCombo: 0,
-  familyPoints: 2450,
-  familySaved: 42,
-  teamScore: 1250,
-  bestTeam: 2800,
-  streak: 7,
+  familyPoints: 0,
+  familySaved: 0,
+  teamScore: 0,
+  bestTeam: 0,
+  streak: 0,
   muted: false,
   musicOn: true,
   voiceOn: true,
@@ -40,6 +42,16 @@ const defaults: SaveData = {
 };
 
 function migrate(raw: Partial<SaveData>): SaveData {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ...defaults };
+  raw = { ...raw };
+  for (const key of Object.keys(defaults) as (keyof SaveData)[]) {
+    if (typeof defaults[key] === "number") {
+      const value = raw[key];
+      (raw as Record<string, unknown>)[key] = typeof value === "number" && Number.isFinite(value)
+        ? Math.min(1_000_000_000, Math.max(0, Math.floor(value))) : defaults[key];
+    }
+  }
+
   const totalCoins = Number.isFinite(raw.totalCoins) ? Math.max(0, Math.floor(raw.totalCoins!)) : 0;
   const musicOn = typeof raw.musicOn === "boolean" ? raw.musicOn : !raw.muted;
   const voiceOn = typeof raw.voiceOn === "boolean" ? raw.voiceOn : !raw.muted;
@@ -58,7 +70,7 @@ function migrate(raw: Partial<SaveData>): SaveData {
 export function loadSave(): SaveData {
   if (typeof window === "undefined") return { ...defaults };
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = gameStorage.getItem(KEY);
     if (!raw) return { ...defaults };
     return migrate(JSON.parse(raw) as Partial<SaveData>);
   } catch {
@@ -69,7 +81,7 @@ export function loadSave(): SaveData {
 export function writeSave(patch: Partial<SaveData>): SaveData {
   const next = { ...loadSave(), ...patch, version: SAVE_VERSION };
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    gameStorage.setItem(KEY, JSON.stringify(next));
   } catch {
     /* private mode / quota */
   }

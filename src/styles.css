@@ -1861,3 +1861,23 @@
 .demo-disclaimer, .keyboard-help, .level-progress { display: none; }
 .game-controls { display: none; }
 .phone { min-height: 0; height: 100dvh; max-height: 932px; }
+
+/* Guardian arcade frame: device safe areas, focus and low-height layouts. */
+.arcade-notice { position: relative; z-index: 2; margin: 0; padding: max(5px, env(safe-area-inset-top)) 12px 5px; background: #17112c; color: #f8f4ff; text-align: center; font-size: 11px; flex-shrink: 0; }
+.phone { padding-bottom: env(safe-area-inset-bottom); }
+.ghost-round { min-width: 44px; min-height: 44px; }
+button:focus-visible { outline: 3px solid #b897ff; outline-offset: 3px; }
+.panel { max-height: calc(100dvh - 64px); overflow-y: auto; overscroll-behavior: contain; }
+@media (max-height: 500px) and (orientation: landscape) {
+ .phone { min-height: 500px; height: 500px; }
+ .shell { min-height: 500px; }
+}
+
+.cover-splash img { object-fit: contain; }
+
+.arcade-rotate { display: none; }
+@media (max-height: 500px) and (orientation: landscape) {
+ .arcade-rotate { display: flex; position: fixed; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; background: #17112c; color: #f8f4ff; text-align: center; }
+ .arcade-rotate h2 { font-size: 22px; font-weight: 700; }
+ .arcade-rotate p { max-width: 300px; font-size: 14px; }
+}

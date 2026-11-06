@@ -1,5 +1,5 @@
-import { loadSave, writeSave, type SaveData } from "./save";
-import { pickLine } from "./voice";
+import { loadSave, writeSave, type SaveData } from "./save.ts";
+import { pickLine } from "./voice.ts";
 
 export const ROUND_TIME = 90;
 export const ROUND_MAX = 20;
